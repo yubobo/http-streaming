@@ -599,6 +599,8 @@ export class MasterPlaylistController extends videojs.EventTarget {
     });
 
     this.mainSegmentLoader_.on('earlyabort', (event) => {
+      let abortSeconds = ABORT_EARLY_BLACKLIST_SECONDS;
+
       if (this.experimentalBufferBasedABR) {
         const currentPlaylist = this.masterPlaylistLoader_.media();
 
@@ -618,9 +620,11 @@ export class MasterPlaylistController extends videojs.EventTarget {
           return;
         }
 
+        // We do not want to abort long in case the bandwidth situation improves
+        // so that we can switch back to the earlyaborted quality.
+        abortSeconds = Config.EXPERIMENTAL_MAX_BUFFER_LOW_WATER_LINE;
       }
 
-      // abort everything to conserve bandwidth for new segments to load
       this.mainSegmentLoader_.abort();
       if (this.mediaTypes_.AUDIO.activePlaylistLoader) {
         this.audioSegmentLoader_.abort();
@@ -632,7 +636,7 @@ export class MasterPlaylistController extends videojs.EventTarget {
       this.blacklistCurrentPlaylist({
         message: 'Aborted early because there isn\'t enough bandwidth to complete the ' +
           'request without rebuffering.'
-      }, ABORT_EARLY_BLACKLIST_SECONDS);
+      }, abortSeconds);
     });
 
     const updateCodecs = () => {
